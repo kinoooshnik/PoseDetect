@@ -8,19 +8,19 @@ python3 -m venv env
 source env/bin/activate
 ```
 
-Занимает минуты 3-4.
-
-Необходимо 2-3 Gb свободной RAM.
 ```bash
 ./install.sh
 ```
+Занимает минуты 3-4.
+
+Необходимо 2-3 Gb свободной RAM.
 
 ### Использование
 
 ```python
 from posedetect import check_pose
 
-imp_path = 'example_images/10.jpg'
+imp_path = 'example.jpg'
 dots, check = check_pose(imp_path)
 ```
 Функция check_pose вернет: 
