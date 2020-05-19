@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 pip3 install numpy scipy opencv-python
 pip3 install -U torch==1.4+cpu torchvision==0.5+cpu -f https://download.pytorch.org/whl/torch_stable.html
 pip3 install cython pyyaml==5.1
