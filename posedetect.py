@@ -1,16 +1,13 @@
-import datetime
 import math
-import os
-import pickle
 import sys
 from collections import defaultdict
 
 import numpy as np
 
-import clean_apply_net
-
 sys.path.append('detectron2/projects/DensePose')
 from densepose.data.structures import DensePoseResult
+
+import clean_apply_net
 
 
 def get_n(data):
