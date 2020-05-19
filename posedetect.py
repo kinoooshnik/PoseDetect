@@ -1,12 +1,13 @@
-import sys
+import datetime
+import math
+import os
 import pickle
+import sys
 from collections import defaultdict
 
-import math
-import subprocess
-import datetime
-import os
 import numpy as np
+
+import clean_apply_net
 
 sys.path.append('detectron2/projects/DensePose')
 from densepose.data.structures import DensePoseResult
@@ -81,17 +82,16 @@ def choose_best_dots(u, v, N, center_ids):
 def generate_dump(densepose_path, img_path):
     timeshtamp = int(datetime.datetime.now().timestamp() * 10000)
     dump_file = 'result_{}.pkl'.format(timeshtamp)
-    args = {'densepose_path': densepose_path, 'img_path': img_path, 'dump_file': dump_file}
 
-    bash_command = 'python3 {densepose_path}apply_net.py dump {densepose_path}configs/densepose_rcnn_R_50_FPN_WC1_s1x.yaml {densepose_path}model_final_289019.pkl {img_path} --output {dump_file} -v --opts MODEL.DEVICE cpu'
-    bash_command = bash_command.format(**args)
+    args = {
+        'cfg': densepose_path + '/configs/densepose_rcnn_R_50_FPN_WC1_s1x.yaml',
+        'model': densepose_path + '/model_final_289019.pkl',
+        'input': img_path,
+        'output': dump_file,
+        'opts': ['MODEL.DEVICE', 'cpu']
+    }
 
-    process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
-    output, _ = process.communicate()
-    print(output.decode("utf-8"))
-
-    if process.returncode != 0:
-        raise Exception(output.decode("utf-8"))
+    clean_apply_net.execute(args)
 
     with open(dump_file, 'rb') as file:
         dump = pickle.load(file)
