@@ -2,6 +2,7 @@ import sys
 import pickle
 from collections import defaultdict
 
+import math
 import subprocess
 import datetime
 import os
@@ -64,57 +65,6 @@ def calculate_dots(parts, N, iuv_arr, bbox_xyxy):
     return u, v
 
 
-def calculate_angle(p1, p2, p3):
-    """Считает угол между 3 точками.
-
-    Строит 2 вектора (p1, p2) и (p3, p2) и считает между ними угол. Если одна из точек (0, 0), то возвращает 0.
-
-    Args:
-        p1 list: массив из 2 элементов x и y координат точки.
-        p2 list: массив из 2 элементов x и y координат точки.
-        p3 list: массив из 2 элементов x и y координат точки.
-
-    Returns:
-        float: угол между точками в градусах
-   """
-    if (0, 0) in [p1, p2, p3]:
-        return 0
-    p1 = np.array(p1)
-    p2 = np.array(p2)
-    p3 = np.array(p3)
-    v1 = p2 - p1
-    v2 = p3 - p2
-    cos = (v1.dot(v2)) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-    return np.degrees(np.arccos(cos))
-
-
-def calculate_person_angles(dots, N):
-    angles = np.zeros(shape=(N, 8), dtype=float)
-    for n in range(N):
-        for i in range(len(dots[n]) - 2):
-            angles[n][i] = calculate_angle(dots[n][i], dots[n][i + 1], dots[n][i + 2])
-    return angles
-
-
-def check_angles(angles, N):
-    IDEAL_ANGLES_STRAIGHT = [12.45692969, 14.59143796, 16.21804211, 1.03094231, 11.7492887, 4.5544555, 6.01517189,
-                             4.16746659]
-    IDEAL_ANGLES_CURVED = [9.789623, 22.60836205, 12.63835315, 7.11686044, 1.29802535, 3.04290574, 7.19902816,
-                           12.48225848]
-
-    is_ok = []
-    for n in range(N):
-        if sum(angles[n]) <= 30:
-            is_ok.append(True)
-        elif sum(abs(angles[n] - IDEAL_ANGLES_STRAIGHT)) <= 30:
-            is_ok.append(True)
-        elif sum(abs(angles[n] - IDEAL_ANGLES_CURVED)) <= 30:
-            is_ok.append(True)
-        else:
-            is_ok.append(False)
-    return is_ok
-
-
 def choose_best_dots(u, v, N, center_ids):
     person_dots = []
     for n in range(N):
@@ -149,6 +99,75 @@ def generate_dump(densepose_path, img_path):
 
     return dump
 
+
+def rotate(origin, xs, ys, angle):
+    """
+    Rotate a point counterclockwise by a given angle around a given origin.
+
+    The angle should be given in radians.
+    """
+    ox, oy = origin
+
+    qx, qy = np.zeros_like(xs), np.zeros_like(ys)
+    for i in range(len(xs)):
+        qx[i] = ox + math.cos(angle) * (xs[i] - ox) - math.sin(angle) * (ys[i] - oy)
+        qy[i] = oy + math.sin(angle) * (xs[i] - ox) + math.cos(angle) * (ys[i] - oy)
+    return qx, qy
+
+
+def check_dots(dots, N):
+    is_ok = []
+    for n in range(N):
+        # разделяем точки на 2 массива
+        x = np.array([x[0] for x in dots[n].values() if x[0] != 0])
+        y = np.array([x[1] for x in dots[n].values() if x[1] != 0])
+
+        # центрируем точки
+        x -= (x.max() - x.min()) / 2 + x.min()
+        y -= (y.max() - y.min()) / 2 + y.min()
+
+        # аппроксимируем точки прямой
+        m, c = np.polyfit(x, y, 1)
+
+        # находим поворот этой прямой относительно оси ox
+        angle = np.arctan(m)
+
+        # поворачиваем точки на найденный угол
+        x, y = rotate((0, c), x, y, -angle)
+
+        # масштабирем так, чтобы точки лежали на интервале от -1 до 1
+        divider = abs(max(x.min(), x.max(), key=abs))
+        x /= divider
+        y /= divider
+
+        # опять центрируем их
+        x -= (x.max() - x.min()) / 2 + x.min()
+
+        # аппроксимируем полиномом 3-й степени
+        m3, m2, m, c = np.polyfit(x, y, 3)
+
+        # создаем объект полинома для расчетов
+        p = np.poly1d([m3, m2, m, 0])
+
+        # находим конри полинома
+        roots = p.r.tolist()
+        roots.extend([1.0, -1.0])
+        roots = sorted([x for x in roots if -1 <= x <= 1])
+
+        # находим интеграл
+        integ = p.integ()
+
+        # считаем площадь под кривой от -1 до 1
+        S = 0
+        for i in range(len(roots) - 1):
+            S += abs(integ(roots[i + 1]) - integ(roots[i]))
+
+        # добавляем результат в массив
+        is_ok.append(True if S <= 0.16 else False)
+
+    return is_ok
+
+
 def check_pose(img_path):
     DENSEPOSE_FOLDER = 'detectron2/projects/DensePose/'
     # сгенерировать и загрузить результат работы DensePose
@@ -169,10 +188,7 @@ def check_pose(img_path):
         # выбирает "лучшие" точки для распознования (отдает приоритет центральным)
         dots = choose_best_dots(u, v, N, [1, 4])
 
-        # считает углы между точками
-        angles = calculate_person_angles(dots, N)
-
-        # проверяет правильность углов между точками
-        check = check_angles(angles, N)
+        # проверяет точки на правильность позы
+        check = check_dots(dots, N)
 
         return dots, check
