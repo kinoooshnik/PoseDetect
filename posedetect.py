@@ -80,22 +80,14 @@ def choose_best_dots(u, v, N, center_ids):
 
 
 def generate_dump(densepose_path, img_path):
-    timeshtamp = int(datetime.datetime.now().timestamp() * 10000)
-    dump_file = 'result_{}.pkl'.format(timeshtamp)
-
     args = {
         'cfg': densepose_path + '/configs/densepose_rcnn_R_50_FPN_WC1_s1x.yaml',
         'model': densepose_path + '/model_final_289019.pkl',
         'input': img_path,
-        'output': dump_file,
         'opts': ['MODEL.DEVICE', 'cpu']
     }
 
-    clean_apply_net.execute(args)
-
-    with open(dump_file, 'rb') as file:
-        dump = pickle.load(file)
-    os.remove(dump_file)
+    dump = clean_apply_net.execute(args)
 
     return dump
 

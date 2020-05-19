@@ -1,6 +1,5 @@
 import glob
 import os
-import pickle
 from typing import Any, Dict
 
 import torch
@@ -30,7 +29,7 @@ def execute(args: dict):
         with torch.no_grad():
             outputs = predictor(img)["instances"]
             execute_on_outputs(context, {"file_name": file_name, "image": img}, outputs)
-    postexecute(context)
+    return context["results"]
 
 
 def setup_config(config_fpath: str, model_fpath: str, args: dict):
@@ -74,15 +73,5 @@ def execute_on_outputs(context: Dict[str, Any], entry: Dict[str, Any], outputs: 
 
 
 def create_context(args: dict):
-    context = {"results": [], "out_fname": args['output']}
+    context = {"results": []}
     return context
-
-
-def postexecute(context: Dict[str, Any]):
-    out_fname = context["out_fname"]
-    out_dir = os.path.dirname(out_fname)
-    if len(out_dir) > 0 and not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    with open(out_fname, "wb") as hFile:
-        pickle.dump(context["results"], hFile)
-        print(f"Output saved to {out_fname}")
