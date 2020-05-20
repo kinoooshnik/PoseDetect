@@ -1,13 +1,19 @@
 import math
 import sys
+
+sys.path.append('detectron2/projects/DensePose')
+
 from collections import defaultdict
 
 import numpy as np
 
-sys.path.append('detectron2/projects/DensePose')
+import clean_apply_net
 from densepose.data.structures import DensePoseResult
 
-import clean_apply_net
+
+
+
+# sys.path.append('')
 
 
 def get_n(data):
@@ -22,7 +28,8 @@ def get_info(data, N):
         bbox_xyxy.append(data['pred_boxes_XYXY'][n])
         result_encoded.append(data['pred_densepose'].results[n])
         iuv_arr.append(DensePoseResult.decode_png_data(*result_encoded[n]))
-        iuv_arr[len(iuv_arr) - 1] = iuv_arr[len(iuv_arr) - 1].astype(np.int16, copy=False)
+        iuv_arr[len(iuv_arr) - 1] = iuv_arr[len(iuv_arr) -
+                                            1].astype(np.int16, copy=False)
     return bbox_xyxy, result_encoded, iuv_arr
 
 
@@ -52,9 +59,11 @@ def calculate_dots(parts, N, iuv_arr, bbox_xyxy):
             #             for area, dots_list in area_dots_list:
             for i, dot in enumerate(dots_list):
                 is_area = (iuv_arr[n][0, :, :] == area)
-                length = abs((iuv_arr[n][2, :, :] - dot[0]) * is_area) + abs((iuv_arr[n][1, :, :] - dot[1]) * is_area)
+                length = abs((iuv_arr[n][2, :, :] - dot[0]) * is_area) + \
+                    abs((iuv_arr[n][1, :, :] - dot[1]) * is_area)
                 xy = np.where(np.logical_and(length < 10, length != 0))
-                xy = (xy[0] + float(bbox_xyxy[n][1]), xy[1] + float(bbox_xyxy[n][0]))
+                xy = (xy[0] + float(bbox_xyxy[n][1]),
+                      xy[1] + float(bbox_xyxy[n][0]))
                 if len(xy[0]) != 0:
                     u[n][part][i] = sum(xy[0]) / len(xy[0])
                     v[n][part][i] = sum(xy[1]) / len(xy[1])
@@ -72,8 +81,22 @@ def choose_best_dots(u, v, N, center_ids):
             if part in center_ids:
                 parts_len[part] += 2
         max_part = max(parts_len, key=parts_len.get)
-        person_dots.append({x: (u[n][max_part][x], v[n][max_part][x]) for x in range(len(u[n][max_part]))})
+        person_dots.append({x: (u[n][max_part][x], v[n][max_part][x])
+                            for x in range(len(u[n][max_part]))})
     return person_dots
+
+
+def generate_dump2(densepose_path, pil):
+    args = {
+        'cfg': densepose_path + '/configs/densepose_rcnn_R_50_FPN_WC1_s1x.yaml',
+        'model': densepose_path + '/model_final_289019.pkl',
+        'input': pil,
+        'opts': ['MODEL.DEVICE', 'cpu']
+    }
+
+    dump = clean_apply_net.execute2(args)
+
+    return dump
 
 
 def generate_dump(densepose_path, img_path):
@@ -99,8 +122,10 @@ def rotate(origin, xs, ys, angle):
 
     qx, qy = np.zeros_like(xs), np.zeros_like(ys)
     for i in range(len(xs)):
-        qx[i] = ox + math.cos(angle) * (xs[i] - ox) - math.sin(angle) * (ys[i] - oy)
-        qy[i] = oy + math.sin(angle) * (xs[i] - ox) + math.cos(angle) * (ys[i] - oy)
+        qx[i] = ox + math.cos(angle) * (xs[i] - ox) - \
+            math.sin(angle) * (ys[i] - oy)
+        qy[i] = oy + math.sin(angle) * (xs[i] - ox) + \
+            math.cos(angle) * (ys[i] - oy)
     return qx, qy
 
 
@@ -155,6 +180,32 @@ def check_dots(dots, N):
         is_ok.append(True if S <= 0.16 else False)
 
     return is_ok
+
+
+def check_pose_from_pil(pil):
+    DENSEPOSE_FOLDER = 'detectron2/projects/DensePose/'
+    # сгенерировать и загрузить результат работы DensePose
+    data = generate_dump2(DENSEPOSE_FOLDER, pil)
+    for i, img_data in enumerate(data):
+        # получить количество распознанных людей с вероятностью >= 0.95
+        N = get_n(img_data)
+
+        # получить bounding box и координаты точек модели человека на фото
+        bbox_xyxy, _, iuv_arr = get_info(img_data, N)
+
+        # получить координаты точек на модели, которые нужно найти на фото
+        parts, colors = get_parts()
+
+        # получить координаты найденных точек на фото
+        u, v = calculate_dots(parts, N, iuv_arr, bbox_xyxy)
+
+        # выбирает "лучшие" точки для распознования (отдает приоритет центральным)
+        dots = choose_best_dots(u, v, N, [1, 4])
+
+        # проверяет точки на правильность позы
+        check = check_dots(dots, N)
+
+        return dots, check
 
 
 def check_pose(img_path):
