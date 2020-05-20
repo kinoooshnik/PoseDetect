@@ -19,7 +19,7 @@ shared_dict = {
     'test': {
         'status': 'ok',
         'data': {
-            'dots': [[0, 1]],
+            'dots': [[[0, 1]]],
             'check': [False]
         }
     }
@@ -33,7 +33,7 @@ def do_job(pil, id):
     }
     try:
         (dots, check) = check_pose_from_pil(pil)
-        actual_dots = list(dots[0].values())
+        actual_dots = [list(x.values()) for x in dots]
         shared_dict[id] = {
             'status': 'ok',
             'data': {

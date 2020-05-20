@@ -81,18 +81,20 @@ Accept: application/json
 
 ```json
 {
-    "status": "ok",
-    "data": {
-        "dots": [
-            [
-                0,
-                0
-            ],
-        ],
-        "check": [
-            true
-        ]
-    }
+  "status": "ok",
+  "data": {
+    "dots": [
+      [
+        [0, 0],
+        [0, 0]
+      ],
+      [
+        [0, 0],
+        [0, 0]
+      ]
+    ],
+    "check": [true, true]
+  }
 }
 ```
 
@@ -100,8 +102,8 @@ or
 
 ```json
 {
-    "status": "ok",
-    "message": "processing"
+  "status": "ok",
+  "message": "processing"
 }
 ```
 
@@ -109,8 +111,8 @@ or
 
 ```json
 {
-    "status": "fail",
-    "message": "fail during pose check"
+  "status": "fail",
+  "message": "fail during pose check"
 }
 ```
 
@@ -118,8 +120,7 @@ or
 
 ```json
 {
-    "status": "fail",
-    "message": "id not found"
+  "status": "fail",
+  "message": "id not found"
 }
 ```
-
