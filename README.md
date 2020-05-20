@@ -79,7 +79,7 @@ Accept: application/json
 
 **response:**
 
-````json
+```json
 {
     "status": "ok",
     "data": {
@@ -93,26 +93,33 @@ Accept: application/json
             true
         ]
     }
-}```
+}
+```
 
 or
+
 ```json
 {
     "status": "ok",
     "message": "processing"
-}```
+}
+```
 
 or
+
 ```json
 {
     "status": "fail",
     "message": "fail during pose check"
-}```
+}
+```
 
 or
+
 ```json
 {
     "status": "fail",
     "message": "id not found"
-}```
-````
+}
+```
+
