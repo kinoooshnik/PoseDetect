@@ -3,12 +3,36 @@ import os
 from typing import Any, Dict
 
 import torch
+
 from densepose import add_densepose_config
 from detectron2.config import get_cfg
-from detectron2.data.detection_utils import read_image
+from detectron2.data.detection_utils import convert_PIL_to_numpy, read_image
 from detectron2.engine.defaults import DefaultPredictor
 from detectron2.structures.boxes import BoxMode
 from detectron2.structures.instances import Instances
+
+
+def execute2(args: dict):
+    print(f"Loading config from {args['cfg']}")
+    cfg = setup_config(args['cfg'], args['model'], args)
+
+    print(f"Loading model from {args['model']}")
+    predictor = DefaultPredictor(cfg)
+
+    print(f"Loading data from {args['input']}")
+    pils = [args['input']]
+    if len(pils) == 0:
+        print(f"No input images for {args['input']}")
+        return
+    context = create_context(args)
+    for pil in pils:
+        # predictor expects BGR image.
+        img = convert_PIL_to_numpy(pil, format="BGR")
+        with torch.no_grad():
+            outputs = predictor(img)["instances"]
+            execute_on_outputs(
+                context, {"file_name": "pil", "image": img}, outputs)
+    return context["results"]
 
 
 def execute(args: dict):
@@ -25,10 +49,12 @@ def execute(args: dict):
         return
     context = create_context(args)
     for file_name in file_list:
-        img = read_image(file_name, format="BGR")  # predictor expects BGR image.
+        # predictor expects BGR image.
+        img = read_image(file_name, format="BGR")
         with torch.no_grad():
             outputs = predictor(img)["instances"]
-            execute_on_outputs(context, {"file_name": file_name, "image": img}, outputs)
+            execute_on_outputs(
+                context, {"file_name": file_name, "image": img}, outputs)
     return context["results"]
 
 
@@ -68,7 +94,8 @@ def execute_on_outputs(context: Dict[str, Any], entry: Dict[str, Any], outputs: 
             boxes_XYWH = BoxMode.convert(
                 result["pred_boxes_XYXY"], BoxMode.XYXY_ABS, BoxMode.XYWH_ABS
             )
-            result["pred_densepose"] = outputs.get("pred_densepose").to_result(boxes_XYWH)
+            result["pred_densepose"] = outputs.get(
+                "pred_densepose").to_result(boxes_XYWH)
     context["results"].append(result)
 
 
